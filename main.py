@@ -113,9 +113,10 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
             batch_images = value[0]
             batch_labels = value[1]
             if batch_images.shape[0] == batch_size:
-                sess.run(train_op, feed_dict={input_image: batch_images, correct_label: batch_labels,
-                                              keep_prob: 0.5, learning_rate: 0.001})
+                nop, loss = sess.run([train_op, cross_entropy_loss], feed_dict={input_image: batch_images, correct_label: batch_labels,
+                                                                                keep_prob: 0.5, learning_rate: 0.001})
                 run_cnt = run_cnt + 1
+                print("loss: {}".format(loss))
     pass
 tests.test_train_nn(train_nn)
 
@@ -141,7 +142,7 @@ def run():
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
         batch_size = 24
-        epochs = 175
+        epochs = 200
         keep_prob = tf.placeholder(tf.float32)
         learning_rate = tf.placeholder(tf.float32)
 
@@ -165,8 +166,15 @@ def run():
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss,
                  image_input, correct_label, keep_prob, learning_rate)
 
-        # TODO: Save inference data using helper.save_inference_samples
+        # for value in helper.gen_test_output(sess, logits, keep_prob, image_input,
+        #                                    os.path.join(data_dir, 'data_road/testing'), image_shape):
+        #    print("image file: {}", value[0])
+        
+        # Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+
+        helper.save_inference_samples(os.path.join(data_dir, 'data_road_test_results'),
+                                      data_dir, sess, image_shape, logits, keep_prob, image_input)
 
         # OPTIONAL: Apply the trained model to a video
 
