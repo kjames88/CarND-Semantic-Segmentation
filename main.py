@@ -114,7 +114,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
             batch_labels = value[1]
             if batch_images.shape[0] == batch_size:
                 nop, loss = sess.run([train_op, cross_entropy_loss], feed_dict={input_image: batch_images, correct_label: batch_labels,
-                                                                                keep_prob: 0.5, learning_rate: 0.001})
+                                                                                keep_prob: 0.5, learning_rate: 0.01})
                 run_cnt = run_cnt + 1
                 print("loss: {}".format(loss))
     pass
@@ -142,7 +142,7 @@ def run():
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
         batch_size = 24
-        epochs = 200
+        epochs = 250
         keep_prob = tf.placeholder(tf.float32)
         learning_rate = tf.placeholder(tf.float32)
 
