@@ -43,28 +43,25 @@ def load_vgg(sess, vgg_path):
     return image_input, keep_prob, layer3_out, layer4_out, layer7_out
 tests.test_load_vgg(load_vgg, tf)
 
-# from 1x1 conv quiz
-def custom_init(shape, dtype=tf.float32, partition_info=None, seed=0):
-    return tf.random_normal(shape, dtype=dtype, seed=seed)
 
 
 def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
     Create the layers for a fully convolutional network.  Build skip-layers using the vgg layers.
-    :param vgg_layer7_out: TF Tensor for VGG Layer 3 output
-    :param vgg_layer4_out: TF Tensor for VGG Layer 4 output
-    :param vgg_layer3_out: TF Tensor for VGG Layer 7 output
+    :param vgg_layer7_out: TF Tensor for VGG Layer 7 output (original dimension = 1000)
+    :param vgg_layer4_out: TF Tensor for VGG Layer 4 output (original dimension = 512)
+    :param vgg_layer3_out: TF Tensor for VGG Layer 3 output (original dimension = 256)
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
     # Implement function
-    #x = tf.nn.conv2d(x, conv1_W, strides=[1,1,1,1], padding='VALID')
-    fc32 = tf.contrib.layers.conv2d(vgg_layer7_out, 64, 1, 1)
+    #   1x1 convolution output channels could be num_classes but performance improves with higher number of channels
+    fc32 = tf.contrib.layers.conv2d(vgg_layer7_out, 256, 1, 1)
     fc32 = tf.contrib.layers.conv2d_transpose(fc32, num_classes, 32, 32)
-    fc16 = tf.contrib.layers.conv2d(vgg_layer4_out, 64, 1, 1)
+    fc16 = tf.contrib.layers.conv2d(vgg_layer4_out, 256, 1, 1)
     fc16 = tf.contrib.layers.conv2d_transpose(fc16, num_classes, 16, 16)
     fc16 = fc16 + fc32
-    fc8 = tf.contrib.layers.conv2d(vgg_layer3_out, 64, 1, 1)
+    fc8 = tf.contrib.layers.conv2d(vgg_layer3_out, 256, 1, 1)
     fc8 = tf.contrib.layers.conv2d_transpose(fc8, num_classes, 8, 8)
     fc8 = fc8 + fc16
     return fc8
@@ -84,7 +81,8 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     # Implement function
     logits = tf.reshape(nn_last_layer, (-1, num_classes))  #.eval(sess.as_default())
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=correct_label))
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(cost)
+    #optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(cost)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=0.1).minimize(cost)
     
     return logits, optimizer, cost
 tests.test_optimize(optimize)
@@ -107,15 +105,15 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     """
     # Implement function
     for epoch in range(epochs):
-        run_cnt = 0
+        batch = 0
         for value in get_batches_fn(batch_size):
-            print("epoch {} run_cnt: {}".format(epoch,run_cnt))
+            print("epoch {} batch: {}".format(epoch,batch))
             batch_images = value[0]
             batch_labels = value[1]
             if batch_images.shape[0] == batch_size:
                 nop, loss = sess.run([train_op, cross_entropy_loss], feed_dict={input_image: batch_images, correct_label: batch_labels,
-                                                                                keep_prob: 0.5, learning_rate: 0.01})
-                run_cnt = run_cnt + 1
+                                                                                keep_prob: 0.5, learning_rate: 0.005})
+                batch = batch + 1
                 print("loss: {}".format(loss))
     pass
 tests.test_train_nn(train_nn)
@@ -141,8 +139,8 @@ def run():
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
-        batch_size = 24
-        epochs = 250
+        batch_size = 25
+        epochs = 1000
         keep_prob = tf.placeholder(tf.float32)
         learning_rate = tf.placeholder(tf.float32)
 
@@ -156,16 +154,19 @@ def run():
         
         correct_label = tf.Variable(tf.zeros(shape=(batch_size, image_shape[0], image_shape[1], num_classes)))
         input_image = tf.Variable(tf.zeros(shape=(batch_size, image_shape[0], image_shape[1], channels)), dtype=tf.float32)
-        #learning_rate = tf.Variable(0.001)
-                
-        sess.run(tf.global_variables_initializer())
         
         logits, train_op, cross_entropy_loss = optimize(final_layer, correct_label, learning_rate, num_classes)
+                
+        sess.run(tf.global_variables_initializer())
+
+        saver = tf.train.Saver()
 
         # Train NN using the train_nn function
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss,
                  image_input, correct_label, keep_prob, learning_rate)
 
+        saver.save(sess, 'trained_model', global_step=epochs)
+        
         # for value in helper.gen_test_output(sess, logits, keep_prob, image_input,
         #                                    os.path.join(data_dir, 'data_road/testing'), image_shape):
         #    print("image file: {}", value[0])
