@@ -60,15 +60,24 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     #   1x1 convolution output channels:  performance improves with higher number of channels
     #   min prior layer dimension is 256
     #   the Long paper uses 21 channels (20 classes + background)
-    fc32 = tf.contrib.layers.conv2d(vgg_layer7_out, 256, 1, 1)
-    fc32 = tf.contrib.layers.conv2d_transpose(fc32, num_classes, 32, 32)
-    fc16 = tf.contrib.layers.conv2d(vgg_layer4_out, 256, 1, 1)
-    fc16 = tf.contrib.layers.conv2d_transpose(fc16, num_classes, 16, 16)
-    fc16 = fc16 + fc32
-    fc8 = tf.contrib.layers.conv2d(vgg_layer3_out, 256, 1, 1)
-    fc8 = tf.contrib.layers.conv2d_transpose(fc8, num_classes, 8, 8)
-    fc8 = fc8 + fc16
-    return fc8
+    # Incorporating reviewer feedback with kernel size twice the stride
+    #   apply 2x upsample, 2x upsample, and then 8x upsample for a total of 32x in stages vs flat
+    #   the paper figure shows fc32, fc16, and fc8 but these are (I think) 3 different solutions, not used together
+    #   also change from tf.contrib.layers to tf.layers, add missing kernel_initializer, and fix default padding
+    vgg_l7_conv = tf.layers.conv2d(vgg_layer7_out, 256, 1, 1, kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    vgg_l4_conv = tf.layers.conv2d(vgg_layer4_out, 256, 1, 1, kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    vgg_l3_conv = tf.layers.conv2d(vgg_layer3_out, 256, 1, 1, kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+
+    vgg_l7_up = tf.layers.conv2d_transpose(vgg_l7_conv, 256, 4, 2, padding='SAME',
+                                           kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    vgg_l4_fuse = vgg_l4_conv + vgg_l7_up  # l4 at stride 16 + l7 at stride 32 upsampled 2x
+    vgg_l4_fuse_up = tf.layers.conv2d_transpose(vgg_l4_fuse, 256, 4, 2, padding='SAME',
+                                                kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    vgg_l3_fuse = vgg_l3_conv + vgg_l4_fuse_up  # l3 at stride 8 + (l4 + l7) at stride 16 upsampled 2x
+    vgg_l3_fuse_up = tf.layers.conv2d_transpose(vgg_l3_fuse, num_classes, 16, 8, padding='SAME',
+                                                kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+    
+    return vgg_l3_fuse_up
 
 tests.test_layers(layers)
 

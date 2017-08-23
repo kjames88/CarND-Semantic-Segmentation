@@ -27,24 +27,3 @@ As shown in the following images, where green marks the predicted road surface, 
 ![uu_000071 latest](runs/latest/uu_000071.png "Latest result uu_000071")
 
 ![uu_000084 latest](runs/latest/uu_000084.png "Latest result uu_000084")
-
-## Observations
-Running the same configuration twice can produce considerably different results in some cases.  The image below is um_000092 from the latest run.  Following is the same image from the previous run.  In both cases, the networks were trained for 250 epochs on an augmented data set of 1156 images.  In some cases a shorter training session produces better results on some images than a longer run with the same configuration.  *Note that the longer run is not a continuation of the shorter run.*
-
-Latest network, 250 epochs
-
-![um_000092 latest](runs/latest/um_000092.png "Latest result")
-
-Prior network, 250 epochs
-
-![um_000092 prior](runs/prior/um_000092.png "Previous result")
-
-### Epochs do not always improve prediction
-250 epochs
-
-![um_000080 latest](runs/latest/um_000080.png "Latest result")
-
-100 epochs
-
-![um_000080 prior](runs/prior/um_000080.png "100 epoch result")
-
